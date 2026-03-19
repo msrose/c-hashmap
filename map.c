@@ -24,16 +24,20 @@ struct iMap {
 typedef struct iMap** Map;
 
 // djb2
-unsigned long hashcode(Map map_ref, char* key) {
-  struct iMap* map = *map_ref;
-
+unsigned long hashcode(char* key) {
   unsigned long val = 5381;
   size_t len = strlen(key);
   for (int i = 0; i < len; i++) {
     val = val * 33 + key[i];
   }
+  return val;
+}
 
-  return val % map->bucket_count;
+unsigned long mapbucket(Map map_ref, char* key) {
+  struct iMap* map = *map_ref;
+
+  unsigned long code = hashcode(key);
+  return code % map->bucket_count;
 }
 
 const int AVERAGE_ITEMS_PER_BUCKET = 2;
@@ -60,7 +64,7 @@ Map mapmake() {
 char* mapget(Map map_ref, char* key) {
   struct iMap* map = *map_ref;
 
-  unsigned long code = hashcode(map_ref, key);
+  unsigned long code = mapbucket(map_ref, key);
 
   struct PairListNode* node = map->buckets[code];
 
@@ -89,7 +93,7 @@ struct PairListNode* makenode(char* key, char* value) {
 int bucketset(Map map_ref, char* key, char* value) {
   struct iMap* map = *map_ref;
 
-  unsigned long code = hashcode(map_ref, key);
+  unsigned long code = mapbucket(map_ref, key);
 
   struct PairListNode* node = map->buckets[code];
 
@@ -118,7 +122,7 @@ int bucketset(Map map_ref, char* key, char* value) {
 void mapdel(Map map_ref, char* key) {
   struct iMap* map = *map_ref;
 
-  unsigned long code = hashcode(map_ref, key);
+  unsigned long code = mapbucket(map_ref, key);
 
   struct PairListNode* prev = NULL;
   struct PairListNode* node = map->buckets[code];

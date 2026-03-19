@@ -39,6 +39,7 @@ int main() {
   printf("Map should have i: %d\n", maphas(map, "i"));
 
   mapdel(map, "i");
+  mapdel(map, "g");
   mapset(map, "c", NULL);
 
   mapprint(map);
