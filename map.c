@@ -8,13 +8,9 @@
  * if the strings passed in are later freed.
  */
 
-struct Pair {
+struct PairListNode {
   char* key;
   char* value;
-};
-
-struct PairListNode {
-  struct Pair* value;
   struct PairListNode* next;
 };
 
@@ -27,13 +23,15 @@ struct iMap {
 
 typedef struct iMap** Map;
 
+// djb2
 unsigned long hashcode(Map map_ref, char* key) {
   struct iMap* map = *map_ref;
 
-  unsigned long val = 1;
+  unsigned long val = 5381;
 
-  for (int i = 0; i < strlen(key); i++) {
-    val *= key[i];
+  size_t len = strlen(key);
+  for (int i = 0; i < len; i++) {
+    val = val * 33 + key[i];
   }
 
   return val % map->bucket_count;
@@ -68,8 +66,8 @@ char* mapget(Map map_ref, char* key) {
   struct PairListNode* bucket = map->buckets[code];
 
   while (bucket) {
-    if (strcmp(bucket->value->key, key) == 0) {
-      return bucket->value->value;
+    if (strcmp(bucket->key, key) == 0) {
+      return bucket->value;
     }
     bucket = bucket->next;
   }
@@ -89,12 +87,9 @@ int bucketset(Map map_ref, char* key, char* value) {
   struct PairListNode* bucket = map->buckets[code];
 
   if (bucket == NULL) {
-    struct Pair* pair = malloc(sizeof(struct Pair));
-    pair->key = key;
-    pair->value = value;
-
     struct PairListNode* node = malloc(sizeof(struct PairListNode));
-    node->value = pair;
+    node->key = key;
+    node->value = value;
     node->next = NULL;
 
     map->buckets[code] = node;
@@ -103,18 +98,15 @@ int bucketset(Map map_ref, char* key, char* value) {
   }
 
   while (1) {
-    if (strcmp(bucket->value->key, key) == 0) {
-      bucket->value->value = value;
+    if (strcmp(bucket->key, key) == 0) {
+      bucket->value = value;
       return 1;
     }
 
     if (bucket->next == NULL) {
-      struct Pair* pair = malloc(sizeof(struct Pair));
-      pair->key = key;
-      pair->value = value;
-
       struct PairListNode* node = malloc(sizeof(struct PairListNode));
-      node->value = pair;
+      node->key = key;
+      node->value = value;
       node->next = NULL;
 
       bucket->next = node;
@@ -143,15 +135,14 @@ void mapset(Map map_ref, char* key, char* value) {
     new_map->max_size = new_map->bucket_count * AVERAGE_ITEMS_PER_BUCKET;
     new_map->buckets = malloc(sizeof(struct PairListNode*) * new_map->bucket_count);
     new_map->size = 0;
-    for (int i = 0; i < map->bucket_count; i++) {
+    for (int i = 0; i < new_map->bucket_count; i++) {
       new_map->buckets[i] = NULL;
     }
 
     for (int i = 0; i < map->bucket_count; i++) {
       struct PairListNode* bucket = map->buckets[i];
       while (bucket) {
-        bucketset(&new_map, bucket->value->key, bucket->value->value);
-        free(bucket->value);
+        bucketset(&new_map, bucket->key, bucket->value);
         struct PairListNode* to_free = bucket;
         bucket = bucket->next;
         free(to_free);
@@ -173,13 +164,12 @@ void mapdel(Map map_ref, char* key) {
   struct PairListNode* node = map->buckets[code];
 
   while (node) {
-    if (strcmp(node->value->key, key) == 0) {
+    if (strcmp(node->key, key) == 0) {
       if (prev) {
         prev->next = node->next;
       } else {
-        map->buckets[code] = NULL;
+        map->buckets[code] = node->next;
       }
-      free(node->value);
       free(node);
       map->size--;
       return;
@@ -195,7 +185,6 @@ void mapfree(Map map_ref) {
   for (int i = 0; i < map->bucket_count; i++) {
     struct PairListNode* bucket = map->buckets[i];
     while (bucket) {
-      free(bucket->value);
       struct PairListNode* to_free = bucket;
       bucket = bucket->next;
       free(to_free);
@@ -215,7 +204,7 @@ void mapprint(Map map_ref) {
 
     printf("%d [", i);
     while (bucket) {
-      printf("%s:%s", bucket->value->key, bucket->value->value);
+      printf("%s:%s", bucket->key, bucket->value);
       bucket = bucket->next;
       if (bucket) {
         printf(", ");
