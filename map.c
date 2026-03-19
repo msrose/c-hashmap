@@ -28,7 +28,6 @@ unsigned long hashcode(Map map_ref, char* key) {
   struct iMap* map = *map_ref;
 
   unsigned long val = 5381;
-
   size_t len = strlen(key);
   for (int i = 0; i < len; i++) {
     val = val * 33 + key[i];
@@ -63,13 +62,13 @@ char* mapget(Map map_ref, char* key) {
 
   unsigned long code = hashcode(map_ref, key);
 
-  struct PairListNode* bucket = map->buckets[code];
+  struct PairListNode* node = map->buckets[code];
 
-  while (bucket) {
-    if (strcmp(bucket->key, key) == 0) {
-      return bucket->value;
+  while (node) {
+    if (strcmp(node->key, key) == 0) {
+      return node->value;
     }
-    bucket = bucket->next;
+    node = node->next;
   }
 
   return NULL;
@@ -79,79 +78,40 @@ int maphas(Map map_ref, char* key) {
   return mapget(map_ref, key) != NULL;
 }
 
+struct PairListNode* makenode(char* key, char* value) {
+  struct PairListNode* new_node = malloc(sizeof(struct PairListNode));
+  new_node->key = key;
+  new_node->value = value;
+  new_node->next = NULL;
+  return new_node;
+}
+
 int bucketset(Map map_ref, char* key, char* value) {
   struct iMap* map = *map_ref;
 
   unsigned long code = hashcode(map_ref, key);
 
-  struct PairListNode* bucket = map->buckets[code];
+  struct PairListNode* node = map->buckets[code];
 
-  if (bucket == NULL) {
-    struct PairListNode* node = malloc(sizeof(struct PairListNode));
-    node->key = key;
-    node->value = value;
-    node->next = NULL;
-
-    map->buckets[code] = node;
+  if (node == NULL) {
+    map->buckets[code] = makenode(key, value);
     map->size++;
     return 0;
   }
 
   while (1) {
-    if (strcmp(bucket->key, key) == 0) {
-      bucket->value = value;
+    if (strcmp(node->key, key) == 0) {
+      node->value = value;
       return 1;
     }
 
-    if (bucket->next == NULL) {
-      struct PairListNode* node = malloc(sizeof(struct PairListNode));
-      node->key = key;
-      node->value = value;
-      node->next = NULL;
-
-      bucket->next = node;
+    if (node->next == NULL) {
+      node->next = makenode(key, value);
       map->size++;
       return 0;
     }
 
-    bucket = bucket->next;
-  }
-}
-
-void mapset(Map map_ref, char* key, char* value) {
-  if (!maphas(map_ref, key) && value == NULL) {
-    return;
-  }
-
-  if (bucketset(map_ref, key, value)) {
-    return;
-  }
-
-  struct iMap* map = *map_ref;
-
-  if (map->size == map->max_size) {
-    struct iMap* new_map = malloc(sizeof(struct iMap));
-    new_map->bucket_count = map->bucket_count * 2;
-    new_map->max_size = new_map->bucket_count * AVERAGE_ITEMS_PER_BUCKET;
-    new_map->buckets = malloc(sizeof(struct PairListNode*) * new_map->bucket_count);
-    new_map->size = 0;
-    for (int i = 0; i < new_map->bucket_count; i++) {
-      new_map->buckets[i] = NULL;
-    }
-
-    for (int i = 0; i < map->bucket_count; i++) {
-      struct PairListNode* bucket = map->buckets[i];
-      while (bucket) {
-        bucketset(&new_map, bucket->key, bucket->value);
-        struct PairListNode* to_free = bucket;
-        bucket = bucket->next;
-        free(to_free);
-      }
-    }
-    free(map->buckets);
-    free(map);
-
-    *map_ref = new_map;
+    node = node->next;
   }
 }
 
@@ -179,14 +139,54 @@ void mapdel(Map map_ref, char* key) {
   }
 }
 
+void mapset(Map map_ref, char* key, char* value) {
+  if (value == NULL) {
+    if (maphas(map_ref, key)) {
+      mapdel(map_ref, key);
+    }
+    return;
+  }
+
+  if (bucketset(map_ref, key, value)) {
+    return;
+  }
+
+  struct iMap* map = *map_ref;
+
+  if (map->size == map->max_size) {
+    struct iMap* new_map = malloc(sizeof(struct iMap));
+    new_map->bucket_count = map->bucket_count * 2;
+    new_map->max_size = new_map->bucket_count * AVERAGE_ITEMS_PER_BUCKET;
+    new_map->buckets = malloc(sizeof(struct PairListNode*) * new_map->bucket_count);
+    new_map->size = 0;
+    for (int i = 0; i < new_map->bucket_count; i++) {
+      new_map->buckets[i] = NULL;
+    }
+
+    for (int i = 0; i < map->bucket_count; i++) {
+      struct PairListNode* node = map->buckets[i];
+      while (node) {
+        bucketset(&new_map, node->key, node->value);
+        struct PairListNode* to_free = node;
+        node = node->next;
+        free(to_free);
+      }
+    }
+    free(map->buckets);
+    free(map);
+
+    *map_ref = new_map;
+  }
+}
+
 void mapfree(Map map_ref) {
   struct iMap* map = *map_ref;
 
   for (int i = 0; i < map->bucket_count; i++) {
-    struct PairListNode* bucket = map->buckets[i];
-    while (bucket) {
-      struct PairListNode* to_free = bucket;
-      bucket = bucket->next;
+    struct PairListNode* node = map->buckets[i];
+    while (node) {
+      struct PairListNode* to_free = node;
+      node = node->next;
       free(to_free);
     }
   }
@@ -200,13 +200,13 @@ void mapprint(Map map_ref) {
 
   printf("map is size %lu, max size is %lu\n", map->size, map->max_size);
   for (int i = 0; i < map->bucket_count; i++) {
-    struct PairListNode* bucket = map->buckets[i];
+    struct PairListNode* node = map->buckets[i];
 
     printf("%d [", i);
-    while (bucket) {
-      printf("%s:%s", bucket->key, bucket->value);
-      bucket = bucket->next;
-      if (bucket) {
+    while (node) {
+      printf("%s:%s", node->key, node->value);
+      node = node->next;
+      if (node) {
         printf(", ");
       }
     }
