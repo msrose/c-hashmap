@@ -2,12 +2,6 @@
 #include <string.h>
 #include <stdio.h>
 
-/*
- * Consider copying the keys and values before storing (and then freeing in
- * mapfree) so that the map doesn't end up holding dangling pointer references
- * if the strings passed in are later freed.
- */
-
 struct PairListNode {
   char* key;
   char* value;
@@ -84,9 +78,17 @@ int maphas(Map map_ref, char* key) {
 
 struct PairListNode* makenode(char* key, char* value) {
   struct PairListNode* new_node = malloc(sizeof(struct PairListNode));
-  new_node->key = key;
-  new_node->value = value;
+
+  unsigned int key_size = sizeof(char) * (strlen(key) + 1);
+  new_node->key = malloc(key_size);
+  strlcpy(new_node->key, key, key_size);
+
+  unsigned int value_size = sizeof(char) * (strlen(value) + 1);
+  new_node->value = malloc(value_size);
+  strlcpy(new_node->value, value, value_size);
+
   new_node->next = NULL;
+
   return new_node;
 }
 
@@ -105,7 +107,10 @@ int bucketset(Map map_ref, char* key, char* value) {
 
   while (1) {
     if (strcmp(node->key, key) == 0) {
-      node->value = value;
+      free(node->value);
+      unsigned int value_size = sizeof(char) * (strlen(value) + 1);
+      node->value = malloc(value_size);
+      strlcpy(node->value, value, value_size);
       return 1;
     }
 
@@ -134,6 +139,8 @@ void mapdel(Map map_ref, char* key) {
       } else {
         map->buckets[code] = node->next;
       }
+      free(node->key);
+      free(node->value);
       free(node);
       map->size--;
       return;
@@ -171,6 +178,8 @@ void mapset(Map map_ref, char* key, char* value) {
       struct PairListNode* node = map->buckets[i];
       while (node) {
         bucketset(&new_map, node->key, node->value);
+        free(node->key);
+        free(node->value);
         struct PairListNode* to_free = node;
         node = node->next;
         free(to_free);
@@ -189,6 +198,8 @@ void mapfree(Map map_ref) {
   for (int i = 0; i < map->bucket_count; i++) {
     struct PairListNode* node = map->buckets[i];
     while (node) {
+      free(node->key);
+      free(node->value);
       struct PairListNode* to_free = node;
       node = node->next;
       free(to_free);
