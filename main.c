@@ -24,6 +24,18 @@ int main() {
   mapset(map, "e", "f");
   mapset(map, "g", "h");
   mapset(map, "i", "j");
+  mapset(map, "k", "l");
+  mapset(map, "m", "n");
+  mapset(map, "o", "p");
+  mapset(map, "q", "s");
+  mapset(map, "t", "u");
+  mapset(map, "v", "w");
+  mapset(map, "x", "y");
+  mapset(map, "z", "1");
+  mapset(map, "2", "3");
+  mapset(map, "4", "5");
+  mapset(map, "6", "7");
+  mapset(map, "8", "9");
   mapprint(map);
 
   printf(
@@ -36,7 +48,7 @@ int main() {
     mapget(map, "michael")
   );
 
-  printf("Map should have i: %d\n", maphas(map, "i"));
+  printf("Map should have i: %d\n\n", maphas(map, "i"));
 
   mapdel(map, "i");
   mapdel(map, "g");
