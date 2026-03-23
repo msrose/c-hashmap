@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 
 #include "./map.c"
 
@@ -38,6 +39,10 @@ int main() {
   mapset(map, "8", "9");
   mapprint(map);
 
+  char* free_key = strdup("freekey");
+  mapset(map, free_key, free_key);
+  free(free_key);
+
   printf(
     "Map vals are hey:%s, foo:%s, bar:%s, baz:%s, chloe:%s, michael:%s\n",
     mapget(map, "hey"),
@@ -59,6 +64,8 @@ int main() {
   printf("Map should not have i: %d\n", maphas(map, "i"));
 
   printf("Map should never have SpanishGuy: %d\n", maphas(map, "SpanishGuy"));
+
+  printf("Map should have free key: %s\n", mapget(map, "freekey"));
 
   mapfree(map);
 }

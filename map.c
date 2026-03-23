@@ -8,14 +8,19 @@ struct PairListNode {
   struct PairListNode* next;
 };
 
-struct iMap {
+typedef struct {
   struct PairListNode** buckets;
   unsigned long size;
   unsigned long max_size;
   unsigned long bucket_count;
-};
+} iMap;
 
-typedef struct iMap** Map;
+typedef iMap** Map;
+
+const int AVERAGE_ITEMS_PER_BUCKET = 2;
+const int GROWTH_FACTOR = 2;
+const int STARTING_BUCKET_COUNT = 2;
+const int STARTING_SIZE = STARTING_BUCKET_COUNT * AVERAGE_ITEMS_PER_BUCKET;
 
 // djb2
 unsigned long hashcode(char* key) {
@@ -28,35 +33,32 @@ unsigned long hashcode(char* key) {
 }
 
 unsigned long mapbucket(Map map_ref, char* key) {
-  struct iMap* map = *map_ref;
+  iMap* map = *map_ref;
 
   unsigned long code = hashcode(key);
   return code % map->bucket_count;
 }
 
-const int AVERAGE_ITEMS_PER_BUCKET = 2;
-
 Map mapmake() {
-  const int STARTING_BUCKET_COUNT = 2;
-  const int STARTING_SIZE = STARTING_BUCKET_COUNT * AVERAGE_ITEMS_PER_BUCKET;
-
-  struct iMap* map = malloc(sizeof(struct iMap));
-  map->max_size = STARTING_SIZE;
-  map->bucket_count = STARTING_BUCKET_COUNT;
-  map->buckets = malloc(sizeof(struct PairListNode*) * map->bucket_count);
-  map->size = 0;
+  iMap* map = malloc(sizeof(iMap));
+  *map = (iMap) {
+    .max_size = STARTING_SIZE,
+    .bucket_count = STARTING_BUCKET_COUNT,
+    .buckets = malloc(sizeof(struct PairListNode*) * STARTING_BUCKET_COUNT),
+    .size = 0
+  };
 
   for (int i = 0; i < map->bucket_count; i++) {
     map->buckets[i] = NULL;
   }
 
-  Map map_ref = malloc(sizeof(struct iMap*));
+  Map map_ref = malloc(sizeof(iMap*));
   *map_ref = map;
   return map_ref;
 }
 
 char* mapget(Map map_ref, char* key) {
-  struct iMap* map = *map_ref;
+  iMap* map = *map_ref;
 
   unsigned long code = mapbucket(map_ref, key);
 
@@ -78,22 +80,17 @@ int maphas(Map map_ref, char* key) {
 
 struct PairListNode* makenode(char* key, char* value) {
   struct PairListNode* new_node = malloc(sizeof(struct PairListNode));
-
-  unsigned int key_size = sizeof(char) * (strlen(key) + 1);
-  new_node->key = malloc(key_size);
-  strlcpy(new_node->key, key, key_size);
-
-  unsigned int value_size = sizeof(char) * (strlen(value) + 1);
-  new_node->value = malloc(value_size);
-  strlcpy(new_node->value, value, value_size);
-
-  new_node->next = NULL;
+  *new_node = (struct PairListNode) {
+    .key = strdup(key),
+    .value = strdup(value),
+    .next = NULL
+  };
 
   return new_node;
 }
 
 int bucketset(Map map_ref, char* key, char* value) {
-  struct iMap* map = *map_ref;
+  iMap* map = *map_ref;
 
   unsigned long code = mapbucket(map_ref, key);
 
@@ -125,7 +122,7 @@ int bucketset(Map map_ref, char* key, char* value) {
 }
 
 void mapdel(Map map_ref, char* key) {
-  struct iMap* map = *map_ref;
+  iMap* map = *map_ref;
 
   unsigned long code = mapbucket(map_ref, key);
 
@@ -162,14 +159,18 @@ void mapset(Map map_ref, char* key, char* value) {
     return;
   }
 
-  struct iMap* map = *map_ref;
+  iMap* map = *map_ref;
 
   if (map->size == map->max_size) {
-    struct iMap* new_map = malloc(sizeof(struct iMap));
-    new_map->bucket_count = map->bucket_count * 2;
-    new_map->max_size = new_map->bucket_count * AVERAGE_ITEMS_PER_BUCKET;
-    new_map->buckets = malloc(sizeof(struct PairListNode*) * new_map->bucket_count);
-    new_map->size = 0;
+    iMap* new_map = malloc(sizeof(iMap));
+    // Designated initializer self-reference doesn't work with `leaks` CLI
+    unsigned int new_bucket_count = map->bucket_count * GROWTH_FACTOR;
+    *new_map = (iMap) {
+      .bucket_count = new_bucket_count,
+      .max_size = new_map->bucket_count * AVERAGE_ITEMS_PER_BUCKET,
+      .buckets = malloc(sizeof(struct PairListNode*) * new_bucket_count),
+      .size = 0
+    };
     for (int i = 0; i < new_map->bucket_count; i++) {
       new_map->buckets[i] = NULL;
     }
@@ -193,7 +194,7 @@ void mapset(Map map_ref, char* key, char* value) {
 }
 
 void mapfree(Map map_ref) {
-  struct iMap* map = *map_ref;
+  iMap* map = *map_ref;
 
   for (int i = 0; i < map->bucket_count; i++) {
     struct PairListNode* node = map->buckets[i];
@@ -211,7 +212,7 @@ void mapfree(Map map_ref) {
 }
 
 void mapprint(Map map_ref) {
-  struct iMap* map = *map_ref;
+  iMap* map = *map_ref;
 
   printf("map is size %lu, max size is %lu\n", map->size, map->max_size);
   for (int i = 0; i < map->bucket_count; i++) {
