@@ -5,4 +5,6 @@ map.o: map.h map.c
 	cc -c map.c -o map.o
 
 clean:
-	rm main map.o
+	rm -f main map.o
+
+.PHONY: clean
