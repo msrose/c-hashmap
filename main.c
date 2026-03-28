@@ -1,7 +1,8 @@
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 
-#include "./map.c"
+#include "map.h"
 
 int main() {
   Map map = mapmake();
@@ -68,4 +69,6 @@ int main() {
   printf("Map should have free key: %s\n", mapget(map, "freekey"));
 
   mapfree(map);
+
+  return 0;
 }
